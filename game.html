@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单词连连看 - 小学英语学习游戏</title>
+  <!-- Tailwind CSS v3 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#4F46E5',
+            secondary: '#10B981',
+            accent: '#F59E0B',
+            success: '#10B981',
+            error: '#EF4444',
+            light: '#F3F4F6',
+            dark: '#1F2937'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'bounce-success': 'bounce-success 1s ease-in-out',
+            'bounce-error': 'bounce-error 1s ease-in-out',
+            'fade-in': 'fade-in 0.5s ease-in-out',
+            'slide-in': 'slide-in 0.5s ease-in-out',
+          },
+          keyframes: {
+            'bounce-success': {
+              '0%, 100%': { backgroundColor: 'transparent' },
+              '50%': { backgroundColor: '#10B981' },
+            },
+            'bounce-error': {
+              '0%, 100%': { backgroundColor: 'transparent' },
+              '50%': { backgroundColor: '#EF4444' },
+            },
+            'fade-in': {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            'slide-in': {
+              '0%': { transform: 'translateY(20px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .word-item {
+        @apply bg-primary text-white p-4 rounded-lg cursor-pointer transition-all duration-300 hover:bg-opacity-80 hover:scale-105;
+      }
+      .image-item {
+        @apply bg-white p-2 rounded-lg shadow-md cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105;
+      }
+      .connection-line {
+        @apply absolute bg-primary h-1 z-10;
+      }
+      .word-item.active {
+        @apply ring-2 ring-yellow-400;
+      }
+      .image-item.active {
+        @apply ring-2 ring-yellow-400;
+      }
+      .word-item.correct {
+        @apply bg-success opacity-75;
+      }
+      .image-item.correct {
+        @apply opacity-75;
+      }
+      .confetti {
+        @apply absolute w-4 h-4 bg-primary rounded-full opacity-0;
+        animation: confetti-fall 3s ease-in-out forwards;
+      }
+      @keyframes confetti-fall {
+        0% {
+          transform: translateY(-100vh) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(100vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen font-sans">
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- 游戏标题和得分 -->
+    <header class="flex justify-between items-center mb-8">
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-primary mb-2">单词连连看</h1>
+        <p class="text-gray-600">连接单词和对应的图片，巩固英语单词记忆</p>
+      </div>
+      <div class="flex space-x-4">
+        <div class="bg-white rounded-lg shadow-md p-4 flex items-center">
+          <i class="fa fa-star text-yellow-400 mr-2"></i>
+          <span class="text-xl font-bold text-gray-800" id="score">0</span>
+        </div>
+        <div class="bg-white rounded-lg shadow-md p-4 flex items-center">
+          <i class="fa fa-trophy text-yellow-500 mr-2"></i>
+          <span class="text-xl font-bold text-gray-800" id="level">1</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 游戏区域 -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+      <!-- 单词区域 -->
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">点击单词听发音，然后连接对应的图片</h2>
+        <div class="grid grid-cols-4 gap-4" id="word-container">
+          <!-- 单词将通过JavaScript动态添加 -->
+        </div>
+      </div>
+
+      <!-- 连接线区域 -->
+      <div class="relative h-16 mb-8" id="connection-area">
+        <!-- 连接线将通过JavaScript动态添加 -->
+      </div>
+
+      <!-- 图片区域 -->
+      <div>
+        <div class="grid grid-cols-4 gap-4" id="image-container">
+          <!-- 图片将通过JavaScript动态添加 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error-message" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-error text-white text-2xl font-bold py-4 px-8 rounded-lg shadow-lg z-50 hidden animate-bounce-error">
+      宝贝连线错误
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="flex justify-center space-x-4">
+      <button id="restart-btn" class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center">
+        <i class="fa fa-refresh mr-2"></i> 重新开始
+      </button>
+      <button id="next-level-btn" class="bg-secondary hover:bg-secondary/90 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center" disabled>
+        <i class="fa fa-arrow-right mr-2"></i> 下一关
+      </button>
+    </div>
+
+    <!-- 游戏完成弹窗 -->
+    <div id="game-complete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+      <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full-full animate-fade-in">
+        <div class="text-center">
+          <div class="inline-block p-4 rounded-full bg-green-100 mb-4">
+            <i class="fa fa-trophy text-4xl text-yellow-500"></i>
+          </div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-2">恭喜你！</h2>
+          <p class="text-gray-600 mb-6">你已成功完成所有关卡！</p>
+          <div class="flex justify-center space-x-4">
+            <button id="play-again-btn" class="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300">
+              再玩一次
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 游戏数据
+    const gameData = [
+      {
+        level: 1,
+        words: [
+          { id: 1, word: 'chicken', image: 'https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/961548808717991949~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362183&x-signature=0ZAAy9%2BxLjZ56T%2FCozRcUbj93FU%3D', audio: 'chicken' },
+          { id: 2, word: 'egg', image: 'https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1054629494467330184~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362183&x-signature=sc57mayb1EdZq0zY4t9YmoZ3ucI%3D', audio: 'egg' },
+          { id: 3, word: 'burger', image: 'https://p3-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/930103686587088899~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362183&x-signature=yPXW21LmXlrfcLDldZbO2G2l2mw%3D', audio: 'burger' },
+          { id: 4, word: 'bread', image: 'https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1013747874144976908~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362183&x-signature=DYCPJxOWxlOiMurytjHfLj%2BkZJ4%3D', audio: 'bread' }
+        ]
+      },
+      {
+        level: 2,
+        words: [
+          { id: 5, word: 'rice', image: 'https://p3-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1069861484410175568~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362197&x-signature=REx54VZmPgHgu%2FFLh7lq7i74lWI%3D', audio: 'rice' },
+          { id: 6, word: 'noodles', image: 'https://p26-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1055127839638814779~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362197&x-signature=1Hwn41DBpqnViO7sPm4vTAIYlvM%3D', audio: 'noodles' },
+          { id: 7, word: 'taco', image: 'https://p11-doubao-search-sign.byteimg.com/labis/6892826f835822168e4b4a4300229e7c~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362197&x-signature=7vYT%2Brbf%2F7WMlREDj4IyfDAT1d8%3D', audio: 'taco' },
+          { id: 8, word: 'turkey', image: 'https://p3-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/900103477462564912~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1777362197&x-signature=E6SW6%2Bh2riSvJKxdvmhQdZ04AdI%3D', audio: 'turkey' }
+        ]
+      }
+    ];
+
+    // 游戏状态
+    let currentLevel = 1;
+    let score = 0;
+    let selectedWord = null;
+    let selectedImage = null;
+    let completedPairs = 0;
+    let totalPairs = 0;
+
+    // DOM元素
+    const wordContainer = document.getElementById('word-container');
+    const imageContainer = document.getElementById('image-container');
+    const connectionArea = document.getElementById('connection-area');
+    const scoreElement = document.getElementById('score');
+    const levelElement = document.getElementById('level');
+    const restartBtn = document.getElementById('restart-btn');
+    const nextLevelBtn = document.getElementById('next-level-btn');
+    const gameCompleteModal = document.getElementById('game-complete-modal');
+    const playAgainBtn = document.getElementById('play-again-btn');
+    const errorMessage = document.getElementById('error-message');
+
+    // 初始化游戏
+    function initGame() {
+      const levelData = gameData.find(level => level.level === currentLevel);
+      if (!levelData) {
+        showGameComplete();
+        return;
+      }
+
+      // 更新UI
+      scoreElement.textContent = score;
+      levelElement.textContent = currentLevel;
+      nextLevelBtn.disabled = true;
+
+      // 清空容器
+      wordContainer.innerHTML = '';
+      imageContainer.innerHTML = '';
+      connectionArea.innerHTML = '';
+
+      // 重置状态
+      selectedWord = null;
+      selectedImage = null;
+      completedPairs = 0;
+      totalPairs = levelData.words.length;
+
+      // 打乱单词和图片顺序
+      const shuffledWords = [...levelData.words].sort(() => Math.random() - 0.5);
+      const shuffledImages = [...levelData.words].sort(() => Math.random() - 0.5);
+
+      // 创建单词元素
+      shuffledWords.forEach(word => {
+        const wordElement = document.createElement('div');
+        wordElement.className = 'word-item text-center';
+        wordElement.dataset.id = word.id;
+        wordElement.innerHTML = `
+          <span class="block text-xl font-bold">${word.word}</span>
+          <span class="text-xs opacity-75">点击发音</span>
+        `;
+        
+        // 添加点击事件 - 播放发音
+        wordElement.addEventListener('click', () => {
+          playAudio(word.audio);
+          
+          // 如果已经配对成功，则不允许再次选择
+          if (wordElement.classList.contains('correct')) return;
+          
+          // 取消之前的选择
+          document.querySelectorAll('.word-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // 设置当前选择
+          wordElement.classList.add('active');
+          selectedWord = word;
+          
+          // 如果已经选择了图片，则尝试配对
+          if (selectedImage) {
+            checkMatch();
+          }
+        });
+        
+        wordContainer.appendChild(wordElement);
+      });
+
+      // 创建图片元素
+      shuffledImages.forEach(word => {
+        const imageElement = document.createElement('div');
+        imageElement.className = 'image-item flex justify-center items-center';
+        imageElement.dataset.id = word.id;
+        imageElement.innerHTML = `
+          <img src="${word.image}" alt="${word.word}" class="w-full h-32 object-contain">
+        `;
+        
+        // 添加点击事件
+        imageElement.addEventListener('click', () => {
+          // 如果已经配对成功，则不允许再次选择
+          if (imageElement.classList.contains('correct')) return;
+          
+          // 取消之前的选择
+          document.querySelectorAll('.image-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // 设置当前选择
+          imageElement.classList.add('active');
+          selectedImage = word;
+          
+          // 如果已经选择了单词，则尝试配对
+          if (selectedWord) {
+            checkMatch();
+          }
+        });
+        
+        imageContainer.appendChild(imageElement);
+      });
+    }
+
+    // 播放音频
+    function playAudio(word) {
+      // 使用Web Speech API播放单词发音
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.8; // 稍微放慢语速，适合儿童
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    // 检查配对是否正确
+    function checkMatch() {
+      if (selectedWord.id === selectedImage.id) {
+        // 配对成功
+        const wordElement = document.querySelector(`.word-item[data-id="${selectedWord.id}"]`);
+        const imageElement = document.querySelector(`.image-item[data-id="${selectedImage.id}"]`);
+        
+        // 添加正确样式
+        wordElement.classList.add('correct');
+        imageElement.classList.add('correct');
+        
+        // 移除活动状态
+        wordElement.classList.remove('active');
+        imageElement.classList.remove('active');
+        
+        // 绘制连接线
+        drawConnection(wordElement, imageElement);
+        
+        // 播放成功动画
+        wordElement.classList.add('animate-bounce-success');
+        imageElement.classList.add('animate-bounce-success');
+        
+        // 增加分数
+        score += 10;
+        scoreElement.textContent = score;
+        
+        // 增加完成配对数量
+        completedPairs++;
+        
+        // 检查是否完成当前关卡
+        if (completedPairs === totalPairs) {
+          setTimeout(() => {
+            if (currentLevel < gameData.length) {
+              nextLevelBtn.disabled = false;
+              showConfetti();
+            } else {
+              showGameComplete();
+            }
+          }, 1000);
+        }
+      } else {
+        // 配对失败
+        const wordElement = document.querySelector(`.word-item[data-id="${selectedWord.id}"]`);
+        const imageElement = document.querySelector(`.image-item[data-id="${selectedImage.id}"]`);
+        
+        // 播放失败动画
+        wordElement.classList.add('animate-bounce-error');
+        imageElement.classList.add('animate-bounce-error');
+        
+        // 显示错误提示
+        errorMessage.classList.remove('hidden');
+        
+        // 移除分数
+        if (score > 0) {
+          score -= 2;
+          scoreElement.textContent = score;
+        }
+        
+        // 1秒后移除错误样式和提示
+        setTimeout(() => {
+          wordElement.classList.remove('animate-bounce-error');
+          imageElement.classList.remove('animate-bounce-error');
+          errorMessage.classList.add('hidden');
+        }, 1000);
+      }
+      
+      // 重置选择
+      selectedWord = null;
+      selectedImage = null;
+      document.querySelectorAll('.word-item, .image-item').forEach(item => {
+        item.classList.remove('active');
+      });
+    }
+
+    // 绘制连接线
+    function drawConnection(wordElement, imageElement) {
+      const wordRect = wordElement.getBoundingClientRect();
+      const imageRect = imageElement.getBoundingClientRect();
+      const connectionAreaRect = connectionArea.getBoundingClientRect();
+      
+      // 计算连接线的起点和终点
+      const startX = wordRect.left + wordRect.width / 2 - connectionAreaRect.left;
+      const startY = wordRect.bottom - connectionAreaRect.top;
+      const endX = imageRect.left + imageRect.width / 2 - connectionAreaRect.left;
+      const endY = imageRect.top - connectionAreaRect.top;
+      
+      // 计算连接线的长度和角度
+      const length = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+      const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
+      
+      // 创建连接线元素
+      const line = document.createElement('div');
+      line.className = 'connection-line';
+      line.style.width = `${length}px`;
+      line.style.left = `${startX}px`;
+      line.style.top = `${startY}px`;
+      line.style.transform = `rotate(${angle}deg)`;
+      line.style.transformOrigin = '0 0';
+      
+      connectionArea.appendChild(line);
+    }
+
+    // 显示游戏完成弹窗
+    function showGameComplete() {
+      gameCompleteModal.classList.remove('hidden');
+      showConfetti();
+    }
+
+    // 显示庆祝效果
+    function showConfetti() {
+      const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+      
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}vw`;
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animationDelay = `${Math.random() * 3}s`;
+        
+        document.body.appendChild(confetti);
+        
+        // 动画结束后移除元素
+        setTimeout(() => {
+          confetti.remove();
+        }, 4000);
+      }
+    }
+
+    // 事件监听
+    restartBtn.addEventListener('click', () => {
+      currentLevel = 1;
+      score = 0;
+      initGame();
+    });
+
+    nextLevelBtn.addEventListener('click', () => {
+      currentLevel++;
+      initGame();
+    });
+
+    playAgainBtn.addEventListener('click', () => {
+      gameCompleteModal.classList.add('hidden');
+      currentLevel = 1;
+      score = 0;
+      initGame();
+    });
+
+    // 初始化游戏
+    document.addEventListener('DOMContentLoaded', () => {
+      initGame();
+    });
+  </script>
+</body>
+</html>
